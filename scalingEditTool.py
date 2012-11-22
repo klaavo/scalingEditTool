@@ -4,7 +4,7 @@ as Interpolated Nudge tools, made famous by Christian Robertson http://betatype.
 When moving oncurve points, offcurve points are scaled in relation to neighboring oncurve points.
 Angles of offcurve points are retained. Command-key and mouse down overrides the angle keeping.
 The tool works on both bicubic and quadratic bezier curves, and open and closed contours.
-All the built-in Edit Tool functionality should work as expected.  By Timo Klaavo 2012  v. 0.9
+All the built-in Edit Tool functionality should work as expected.  By Timo Klaavo 2012  v. 0.9.1
 
 """
 
@@ -13,7 +13,7 @@ from math import sqrt
 
 
 def diff(a, b):
-    return float(max(a,b) - min(a,b))
+    return float(abs(a - b))
 
 def pointData(p0, p1, p2, p3):
     # distances between bPoints:
@@ -82,7 +82,7 @@ class ScalingEditTool(EditingTool):
             self.scalePoints()
 
     def keyDown(self, event):
-        self.isTabDown = True if 'keyCode=48' in unicode(event) else 0 # ha! if tab or modifier+tab pressed
+        self.isTabDown = True if event.keyCode() == 48 else 0 # if tab or modifier+tab pressed
         if any(self.arrowKeysDown[i] for i in self.arrowKeysDown):
             self.isArrowKeyDown = True
             self.scalePoints()
