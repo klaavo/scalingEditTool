@@ -2,31 +2,30 @@
 Scaling Edit Tool for RoboFont is a mouse and keyboard controlled version of what are better known
 as Interpolated Nudge tools, made famous by Christian Robertson http://betatype.com/node/18
 When moving oncurve points, offcurve points are scaled in relation to neighboring oncurve points.
-Angles of offcurve points are retained. Command-key and mouse down overrides the angle keeping.
-Setup function has some user settings for the angle keeping and command-key behavior.
 The tool works on both bicubic and quadratic bezier curves, and open and closed contours.
-All the built-in Edit Tool functionality should work as expected.  By Timo Klaavo 2012  v. 0.9.2
-
+All the built-in Edit Tool functionality should work as expected.
+Angles of offcurve points are retained by default. Command-key overrides the angle keeping when
+mouse is down. In contextual menu (right mouse click) you can choose whether or not smooth and
+non-selected points are affected by the override. Simplified mode offers a more traditional
+operation without angle keeping. Timo Klaavo 2012-2013 v. 1.0
 """
 
-from mojo.events import EditingTool, installTool
+from mojo.events import EditingTool, installTool, setActiveEventTool
+from mojo.extensions import getExtensionDefault, setExtensionDefault
+from AppKit import NSImage
 from math import sqrt
+import os
 
-
-def setup(): return {
-# user options: 1 or 0 (True or False). Save and run the script again for changes to take effect.
-    'selectOnly': 0,  # command-key override of angle-keeping affects selected points only, and not unselected.
-    'smoothsToo': 1,  # command-key override of angle-keeping affects smooth points too, not only non-smooths.
-    'simplified': 0   # skip angle keeping altogether, and let bcps reverse. Like control-dragging in GlyphsApp.
-}
+dirname = os.path.dirname(__file__)
+toolbarIcon = NSImage.alloc().initByReferencingFile_(os.path.join(dirname, "scalingEditToolbarIcon.pdf"))
 
 def diff(a, b, c=0):
     return float(abs(a - b)) if c == 0 else float(a - b)
 
-def pointData(p1, p2, p1Ut, p2In):
+def pointData(p1, p2, p1Ut, p2In, simplified):
     # distances between points:
-    distX = diff(p1.x, p2.x, setup()['simplified'])
-    distY = diff(p1.y, p2.y, setup()['simplified'])
+    distX = diff(p1.x, p2.x, simplified)
+    distY = diff(p1.y, p2.y, simplified)
     # relative offcurve coordinates
     p1Bcp = p1Ut.x - p1.x, p1Ut.y - p1.y
     p2Bcp = p2In.x - p2.x, p2In.y - p2.y
@@ -85,7 +84,40 @@ def keepAngles(p, offCurve, pyx, pxy, pdx, pdy):
 
 class ScalingEditTool(EditingTool):
 
+    def getToolbarIcon(self): 
+        return toolbarIcon
+
+    def getToolbarTip(self):
+        return "Scaling Edit"
+
+    def additionContectualMenuItems(self):
+        selectText = 'Turn On Non-Selected' if self.settings['selectOnly'] else 'Turn Off Non-Selected'
+        smoothText = 'Turn Off Smooths' if self.settings['smoothsToo'] else 'Turn On Smooths'
+        simpliText = 'Turn Off Simplified Mode' if self.settings['simplified'] else 'Turn On Simplified Mode'
+        setActiveEventTool('ScalingEditTool') # needs a reset if using trackpad for some reason. This bug is in the default Edit Tool also...
+        return [('Angle Keeping Override (cmd-key)', [(selectText, self.menuCallSelected), (smoothText, self.menuCallSmooths)]), (simpliText, self.menuCallSimplified)]
+
+    def menuCallSelected(self, call):
+        self.settings['selectOnly'] = False if self.settings['selectOnly'] else True
+        setExtensionDefault('com.timoklaavo.scalingEditTool.selectOnly', self.settings['selectOnly'])
+
+    def menuCallSmooths(self, call):
+        self.settings['smoothsToo'] = False if self.settings['smoothsToo'] else True
+        setExtensionDefault('com.timoklaavo.scalingEditTool.smoothsToo', self.settings['smoothsToo'])
+
+    def menuCallSimplified(self, call):
+        self.settings['simplified'] = False if self.settings['simplified'] else True
+        setExtensionDefault('com.timoklaavo.scalingEditTool.simplified', self.settings['simplified'])
+        self.buildScaleDataList()
+
+    def defaultSettings(self):
+        self.settings = {}
+        self.settings['selectOnly'] = getExtensionDefault('com.timoklaavo.scalingEditTool.selectOnly', fallback=False)
+        self.settings['smoothsToo'] = getExtensionDefault('com.timoklaavo.scalingEditTool.smoothsToo', fallback=True)
+        self.settings['simplified'] = getExtensionDefault('com.timoklaavo.scalingEditTool.simplified', fallback=False)
+
     def becomeActive(self):
+        self.defaultSettings()
         self.glyph = CurrentGlyph()
         self.buildScaleDataList()
 
@@ -135,7 +167,7 @@ class ScalingEditTool(EditingTool):
                                 p2In = segms[pI-2].points[-2] # in-point of p2
                                 prevType = segms[pI-i3].type # previous segment type
                                 nextType = segms[pI-1].type # next segment type
-                                self.scaleData.append(pointData(p1, p2, p1Ut, p2In) + (p0, p3, prevType, nextType))
+                                self.scaleData.append(pointData(p1, p2, p1Ut, p2In, self.settings['simplified']) + (p0, p3, prevType, nextType))
 
     def scalePoints(self, arrowKeyDown=0):
         if not self.transformMode(): # normal behavior in transform mode
@@ -150,21 +182,21 @@ class ScalingEditTool(EditingTool):
                 prevType, nextType = i[18], i[19] # previous and next segment types
 
                 # scale curve
-                newDistX = diff(p1.x, p2.x, setup()['simplified'])
-                newDistY = diff(p1.y, p2.y, setup()['simplified'])
+                newDistX = diff(p1.x, p2.x, self.settings['simplified'])
+                newDistY = diff(p1.y, p2.y, self.settings['simplified'])
                 p1UtX, p1UtY = newDistX * p1xr + p1.x, newDistY * p1yr + p1.y
                 p2InX, p2InY = newDistX * p2xr + p2.x, newDistY * p2yr + p2.y
                 p1Ut.x, p1Ut.y, p2In.x, p2In.y = p1UtX, p1UtY, p2InX, p2InY
 
                 # correct offCurve angles
-                if not setup()['simplified']:
+                if not self.settings['simplified']:
                     if prevType == 'line' and p1.smooth: # smooth line before
                         p1Ut.x, p1Ut.y = smoothLines(p1, p0, p1Ut)
                     elif p1yx: # diagonal p1Ut
                         p1Ut.x, p1Ut.y = keepAngles(p1, p1Ut, p1yx, p1xy, p1dx, p1dy)
                         if not arrowKeyDown and self.commandDown: # keep angle override
-                            if setup()['smoothsToo'] or not setup()['smoothsToo'] and not p1.smooth:
-                                if setup()['selectOnly'] and p1.selected or not setup()['selectOnly']:
+                            if self.settings['smoothsToo'] or not self.settings['smoothsToo'] and not p1.smooth:
+                                if self.settings['selectOnly'] and p1.selected or not self.settings['selectOnly']:
                                     p1Ut.x, p1Ut.y = p1UtX, p1UtY
 
                     if nextType == 'line' and p2.smooth:  # smooth line after
@@ -172,8 +204,8 @@ class ScalingEditTool(EditingTool):
                     elif p2yx: # diagonal p2In
                         p2In.x, p2In.y = keepAngles(p2, p2In, p2yx, p2xy, p2dx, p2dy)
                         if not arrowKeyDown and self.commandDown: # keep angle override
-                            if setup()['smoothsToo'] or not setup()['smoothsToo'] and not p2.smooth:
-                                if setup()['selectOnly'] and p2.selected or not setup()['selectOnly']:
+                            if self.settings['smoothsToo'] or not self.settings['smoothsToo'] and not p2.smooth:
+                                if self.settings['selectOnly'] and p2.selected or not self.settings['selectOnly']:
                                     p2In.x, p2In.y = p2InX, p2InY
 
 

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>addToMenu</key>
+	<array>
+		<dict>
+			<key>path</key>
+			<string>scalingEditToolExt.py</string>
+			<key>preferredName</key>
+			<string>scalingEditTool</string>
+			<key>shortKey</key>
+			<string></string>
+		</dict>
+	</array>
+	<key>developer</key>
+	<string>Timo Klaavo</string>
+	<key>developerURL</key>
+	<string>http://www.timoklaavo.com/scaling-edit-tool-for-robofont/</string>
+	<key>html</key>
+	<true/>
+	<key>launchAtStartUp</key>
+	<integer>1</integer>
+	<key>mainScript</key>
+	<string>scalingEditToolExt.py</string>
+	<key>name</key>
+	<string>ScalingEditTool</string>
+	<key>requiresVersionMajor</key>
+	<string>1</string>
+	<key>requiresVersionMinor</key>
+	<string>3</string>
+	<key>timeStamp</key>
+	<real>1356559756.2455201</real>
+	<key>version</key>
+	<string>1.0</string>
+</dict>
+</plist>
