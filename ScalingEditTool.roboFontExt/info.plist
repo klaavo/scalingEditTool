@@ -33,5 +33,7 @@
 	<real>1356559756.2455201</real>
 	<key>version</key>
 	<string>1.0</string>
+	<key>repository</key>
+	<string>klaavo/scalingEditTool</string>
 </dict>
 </plist>
