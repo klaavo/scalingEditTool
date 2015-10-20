@@ -10,7 +10,7 @@ All the built-in Edit Tool functionality should work as expected.
 Angles of offcurve points are retained by default. Command-key overrides the angle keeping when
 mouse is down. In contextual menu (right mouse click) you can choose whether or not smooth and
 non-selected points are affected by the override. Simplified mode offers a more traditional
-operation without angle keeping. http://timoklaavo.com/scaling-edit-tool-for-robofont/
+operation without angle keeping.
 
 
 MIT Licence
