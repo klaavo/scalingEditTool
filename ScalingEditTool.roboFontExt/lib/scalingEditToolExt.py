@@ -7,7 +7,7 @@ All the built-in Edit Tool functionality should work as expected.
 Angles of offcurve points are retained by default. Command-key overrides the angle keeping when
 mouse is down. In contextual menu (right mouse click) you can choose whether or not smooth and
 non-selected points are affected by the override. Simplified mode offers a more traditional
-operation without angle keeping. Timo Klaavo 2012-2013 v. 1.0
+operation without angle keeping. Timo Klaavo 2012-2016 v. 1.0.1
 """
 
 from mojo.events import EditingTool, installTool, setActiveEventTool
@@ -84,17 +84,23 @@ def keepAngles(p, offCurve, pyx, pxy, pdx, pdy):
 
 class ScalingEditTool(EditingTool):
 
-    def getToolbarIcon(self): 
+    def getToolbarIcon(self):
         return toolbarIcon
 
     def getToolbarTip(self):
         return "Scaling Edit"
 
-    def additionContectualMenuItems(self):
+    def additionContectualMenuItems(self):  #  Up to RF 1.6
         selectText = 'Turn On Non-Selected' if self.settings['selectOnly'] else 'Turn Off Non-Selected'
         smoothText = 'Turn Off Smooths' if self.settings['smoothsToo'] else 'Turn On Smooths'
         simpliText = 'Turn Off Simplified Mode' if self.settings['simplified'] else 'Turn On Simplified Mode'
         setActiveEventTool('ScalingEditTool') # needs a reset if using trackpad for some reason. This bug is in the default Edit Tool also...
+        return [('Angle Keeping Override (cmd-key)', [(selectText, self.menuCallSelected), (smoothText, self.menuCallSmooths)]), (simpliText, self.menuCallSimplified)]
+
+    def additionContextualMenuItems(self):  # RF 1.7
+        selectText = 'Turn On Non-Selected' if self.settings['selectOnly'] else 'Turn Off Non-Selected'
+        smoothText = 'Turn Off Smooths' if self.settings['smoothsToo'] else 'Turn On Smooths'
+        simpliText = 'Turn Off Simplified Mode' if self.settings['simplified'] else 'Turn On Simplified Mode'
         return [('Angle Keeping Override (cmd-key)', [(selectText, self.menuCallSelected), (smoothText, self.menuCallSmooths)]), (simpliText, self.menuCallSimplified)]
 
     def menuCallSelected(self, call):

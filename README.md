@@ -1,6 +1,6 @@
 Scaling Edit Tool
 =================
-Custom editing tool extension for RoboFont editor - version 1.0
+Custom editing tool extension for RoboFont editor - version 1.0.1
 
 Scaling Edit Tool for RoboFont is a mouse and keyboard controlled version of what are better known
 as Interpolated Nudge tools, [made famous by Christian Robertson](http://betatype.com/node/18).
