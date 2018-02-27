@@ -16,7 +16,7 @@
 	<key>developer</key>
 	<string>Timo Klaavo</string>
 	<key>developerURL</key>
-	<string>http://www.timoklaavo.com</string>
+	<string>http://github.com/klaavo</string>
 	<key>html</key>
 	<true/>
 	<key>launchAtStartUp</key>
@@ -32,7 +32,7 @@
 	<key>timeStamp</key>
 	<real>1356559756.2455201</real>
 	<key>version</key>
-	<string>1.0.1</string>
+	<string>1.0.2</string>
 	<key>com.robofontmechanic.Mechanic</key>
 	<dict>
 		<key>repository</key>
