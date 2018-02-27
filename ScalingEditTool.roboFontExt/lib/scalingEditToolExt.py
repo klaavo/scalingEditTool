@@ -15,6 +15,7 @@ from mojo.extensions import getExtensionDefault, setExtensionDefault
 from AppKit import NSImage
 from math import sqrt
 import os
+from mojo.roboFont import version
 
 dirname = os.path.dirname(__file__)
 toolbarIcon = NSImage.alloc().initByReferencingFile_(os.path.join(dirname, "scalingEditToolbarIcon.pdf"))
@@ -144,7 +145,12 @@ class ScalingEditTool(EditingTool):
     def modifiersChanged(self):
         if self.isDragging(): # command-key override of angle keeping works only when mouse is down
             self.scalePoints()
-            self.glyph.update()
+            # RF3
+            if version >= "3.0.0":
+                self.glyph.changed()
+            # RF1
+            else:
+                self.glyph.update()
 
     def keyDown(self, event):
         if any(self.arrowKeysDown[i] for i in self.arrowKeysDown):
