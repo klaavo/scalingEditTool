@@ -12,7 +12,7 @@ non-selected points are affected by the override. Simplified mode offers
 a more traditional operation without angle keeping.
 """
 
-from mojo.events import EditingTool, installTool, setActiveEventTool
+from mojo.events import EditingTool, installTool
 from mojo.extensions import getExtensionDefault, setExtensionDefault
 from mojo.roboFont import version
 from AppKit import NSImage
@@ -226,4 +226,3 @@ class ScalingEditTool(EditingTool):
 
 
 installTool(ScalingEditTool())
-setActiveEventTool('ScalingEditTool')
