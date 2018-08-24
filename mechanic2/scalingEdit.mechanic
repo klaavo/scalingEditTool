@@ -1,0 +1,9 @@
+extensionName: ScalingEditTool
+repository: https://github.com/klaavo/scalingEditTool
+extensionPath: ScalingEditTool.roboFontExt
+description: Arrow tool for scaling curve segments while moving on-curve points.
+tags: [contours, design helpers, interpolated nudge]
+developer: Timo Klaavo
+developerURL: http://github.com/klaavo
+icon: http://github.com/klaavo/scalingEditTool/blob/master/mechanic2/ScalingEditMechanicIcon.png
+dateAdded: 2016-02-11 17:49:32

@@ -164,7 +164,7 @@ class ScalingEditTool(EditingTool):
 
     def buildScaleDataList(self, selectionChanged=0):
         self.scaleData = []
-        if self.glyph and self.glyph.selection != []:  # stop if there is nothing selected
+        if self.glyph and self.glyph.selectedPoints != []:  # stop if there is nothing selected
             for cI in range(len(self.glyph.contours)):
                 if len(self.glyph.contours[cI]) > 1:  # skip lonesome points
                     contr = self.glyph.contours[cI]
