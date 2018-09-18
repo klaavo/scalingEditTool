@@ -28,11 +28,11 @@
 	<key>requiresVersionMajor</key>
 	<string>1</string>
 	<key>requiresVersionMinor</key>
-	<string>3</string>
+	<string>7</string>
 	<key>timeStamp</key>
 	<real>1356559756.2455201</real>
 	<key>version</key>
-	<string>1.0.2</string>
+	<string>1.0.3</string>
 	<key>com.robofontmechanic.Mechanic</key>
 	<dict>
 		<key>repository</key>

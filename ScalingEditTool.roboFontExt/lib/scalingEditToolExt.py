@@ -24,8 +24,8 @@ dirname = path.dirname(__file__)
 toolbarIcon = NSImage.alloc().initByReferencingFile_(path.join(dirname, "scalingEditToolbarIcon.pdf"))
 
 
-def diff(a, b, c=0):
-    return float(abs(a - b)) if c == 0 else float(a - b)
+def diff(a, b, simplified=False):
+    return float(abs(a - b)) if simplified is False else float(a - b)
 
 
 def pointData(p1, p2, p1Ut, p2In, simplified):
@@ -98,13 +98,7 @@ class ScalingEditTool(EditingTool):
     def getToolbarTip(self):
         return "Scaling Edit"
 
-    def additionContectualMenuItems(self):  # Up to RF 1.6
-        selectText = 'Turn On Non-Selected' if self.settings['selectOnly'] else 'Turn Off Non-Selected'
-        smoothText = 'Turn Off Smooths' if self.settings['smoothsToo'] else 'Turn On Smooths'
-        simpliText = 'Turn Off Simplified Mode' if self.settings['simplified'] else 'Turn On Simplified Mode'
-        return [('Angle Keeping Override (cmd-key)', [(selectText, self.menuCallSelected), (smoothText, self.menuCallSmooths)]), (simpliText, self.menuCallSimplified)]
-
-    def additionContextualMenuItems(self):  # RF 1.7
+    def additionContextualMenuItems(self):
         selectText = 'Turn On Non-Selected' if self.settings['selectOnly'] else 'Turn Off Non-Selected'
         smoothText = 'Turn Off Smooths' if self.settings['smoothsToo'] else 'Turn On Smooths'
         simpliText = 'Turn Off Simplified Mode' if self.settings['simplified'] else 'Turn On Simplified Mode'
@@ -131,8 +125,7 @@ class ScalingEditTool(EditingTool):
 
     def becomeActive(self):
         self.defaultSettings()
-        self.glyph = CurrentGlyph()
-        self.buildScaleDataList()
+        self.currentGlyphChanged()
 
     def currentGlyphChanged(self):
         self.glyph = CurrentGlyph()
@@ -162,28 +155,30 @@ class ScalingEditTool(EditingTool):
         elif not self.isDragging() or self.isDragging() and event.keyCode() == 48:  # 48 = tab or modifier+tab
             self.buildScaleDataList()  # triggered by tab while dragging, and all keys except arrows while not dragging
 
-    def buildScaleDataList(self, selectionChanged=0):
+    def buildScaleDataList(self):
         self.scaleData = []
-        if self.glyph and self.glyph.selectedPoints != []:  # stop if there is nothing selected
-            for cI in range(len(self.glyph.contours)):
-                if len(self.glyph.contours[cI]) > 1:  # skip lonesome points
-                    contr = self.glyph.contours[cI]
-                    segms = contr.segments[:]
-                    segms = segms[:-1] if segms[-1].type == 'offCurve' else segms  # ignore tailing 'offCurve'-segments in open contours
-                    segms = segms[1:] + segms[:1] if segms[0].type == 'move' else segms  # 'move'-segment of open contours from beginning to end
-                    for pI in range(len(segms)):
-                        if segms[pI-2].type == 'curve' or segms[pI-2].type == 'qcurve':  # not 'offCurve', 'line', 'move' or such
-                            i3 = 3 if len(segms) > 2 else 1  # cheat with indexes if only 2 points in contour
-                            p1 = segms[pI - i3].points[-1]  # point in beginning of curve to be scaled
-                            p2 = segms[pI - 2].points[-1]  # ending point of curve to be scaled
-                            if p1.selected and not p2.selected or p2.selected and not p1.selected:
-                                p3 = segms[pI - 1].points[-1]  # next onCurve point after p2
-                                p0 = segms[pI - i3 - 1].points[-1] if len(segms) != 3 else p3  # previous onCurve point, p0 is p3 in 3-point outline
-                                p1Ut = segms[pI - 2].points[-3]  # out-point of p1
-                                p2In = segms[pI - 2].points[-2]  # in-point of p2
-                                prevType = segms[pI - i3].type  # previous segment type
-                                nextType = segms[pI - 1].type  # next segment type
-                                self.scaleData.append(pointData(p1, p2, p1Ut, p2In, self.settings['simplified']) + (p0, p3, prevType, nextType))
+        if self.glyph is not None:
+            selection = self.glyph.selection if version < '3.2.0' else self.glyph.selectedPoints
+            if selection != []:  # stop if there is nothing selected
+                for cI in range(len(self.glyph.contours)):
+                    if len(self.glyph.contours[cI]) > 1:  # skip lonesome points
+                        contr = self.glyph.contours[cI]
+                        segms = contr.segments[:]
+                        segms = segms[:-1] if segms[-1].type == 'offCurve' else segms  # ignore tailing 'offCurve'-segments in open contours
+                        segms = segms[1:] + segms[:1] if segms[0].type == 'move' else segms  # 'move'-segment of open contours from beginning to end
+                        for pI in range(len(segms)):
+                            if segms[pI-2].type == 'curve' or segms[pI-2].type == 'qcurve':  # not 'offCurve', 'line', 'move' or such
+                                i3 = 3 if len(segms) > 2 else 1  # cheat with indexes if only 2 points in contour
+                                p1 = segms[pI - i3].points[-1]  # point in beginning of curve to be scaled
+                                p2 = segms[pI - 2].points[-1]  # ending point of curve to be scaled
+                                if p1.selected and not p2.selected or p2.selected and not p1.selected:
+                                    p3 = segms[pI - 1].points[-1]  # next onCurve point after p2
+                                    p0 = segms[pI - i3 - 1].points[-1] if len(segms) != 3 else p3  # previous onCurve point, p0 is p3 in 3-point outline
+                                    p1Ut = segms[pI - 2].points[-3]  # out-point of p1
+                                    p2In = segms[pI - 2].points[-2]  # in-point of p2
+                                    prevType = segms[pI - i3].type  # previous segment type
+                                    nextType = segms[pI - 1].type  # next segment type
+                                    self.scaleData.append(pointData(p1, p2, p1Ut, p2In, self.settings['simplified']) + (p0, p3, prevType, nextType))
 
     def scalePoints(self, arrowKeyDown=0):
         if not self.transformMode():  # normal behavior in transform mode
