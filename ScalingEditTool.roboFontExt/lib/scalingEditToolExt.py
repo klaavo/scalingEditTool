@@ -135,19 +135,21 @@ class ScalingEditTool(EditingTool):
         self.buildScaleDataList()
 
     def mouseUp(self, point):  # for lasso selections
-        self.buildScaleDataList()
+        self.buildScaleDataList()        
 
     def mouseDragged(self, point, delta):
         if not self.optionDown and not self.commandDown:  # allow default option and command behavior
             self.scalePoints()
 
-    def modifiersChanged(self):
+    def modifiersChanged(self):        
         if self.isDragging():  # command-key override of angle keeping works only when mouse is down
             self.scalePoints()
-            if version >= '2.0.0':  # RF2 and later
+            if version >= '2.0':  # RF2 and later
                 self.glyph.changed()
             else:  # RF1
                 self.glyph.update()
+        else:
+            self.buildScaleDataList()        
 
     def keyDown(self, event):
         if any(self.arrowKeysDown[i] for i in self.arrowKeysDown):
@@ -158,7 +160,7 @@ class ScalingEditTool(EditingTool):
     def buildScaleDataList(self):
         self.scaleData = []
         if self.glyph is not None:
-            selection = self.glyph.selection if version < '3.2.0' else self.glyph.selectedPoints
+            selection = self.glyph.selection if version < '3.2' else self.glyph.selectedPoints
             if selection != []:  # stop if there is nothing selected
                 for cI in range(len(self.glyph.contours)):
                     if len(self.glyph.contours[cI]) > 1:  # skip lonesome points
