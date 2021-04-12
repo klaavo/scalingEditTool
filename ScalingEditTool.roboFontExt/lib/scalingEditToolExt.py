@@ -14,7 +14,6 @@ a more traditional operation without angle keeping.
 
 from mojo.events import EditingTool, installTool
 from mojo.extensions import getExtensionDefault, setExtensionDefault
-from mojo.roboFont import version
 from AppKit import NSImage
 from math import sqrt
 from os import path
@@ -125,101 +124,98 @@ class ScalingEditTool(EditingTool):
 
     def becomeActive(self):
         self.defaultSettings()
-        self.currentGlyphChanged()
+        self.buildScaleDataList()
 
     def currentGlyphChanged(self):
-        self.glyph = CurrentGlyph()
         self.buildScaleDataList()
 
     def mouseDown(self, point, clickCount):
         self.buildScaleDataList()
 
     def mouseUp(self, point):  # for lasso selections
-        self.buildScaleDataList()        
+        self.buildScaleDataList()
 
     def mouseDragged(self, point, delta):
         if not self.optionDown and not self.commandDown:  # allow default option and command behavior
             self.scalePoints()
 
-    def modifiersChanged(self):        
+    def modifiersChanged(self):
         if self.isDragging():  # command-key override of angle keeping works only when mouse is down
             self.scalePoints()
-            if version >= '2.0':  # RF2 and later
-                self.glyph.changed()
-            else:  # RF1
-                self.glyph.update()
         else:
-            self.buildScaleDataList()        
+            self.buildScaleDataList()
 
     def keyDown(self, event):
-        if any(self.arrowKeysDown[i] for i in self.arrowKeysDown):
+        if any(self.arrowKeysDown.values()):
             self.scalePoints(arrowKeyDown=True)
         elif not self.isDragging() or self.isDragging() and event.keyCode() == 48:  # 48 = tab or modifier+tab
             self.buildScaleDataList()  # triggered by tab while dragging, and all keys except arrows while not dragging
 
     def buildScaleDataList(self):
         self.scaleData = []
-        if self.glyph is not None:
-            selection = self.glyph.selection if version < '3.2' else self.glyph.selectedPoints
-            if selection != []:  # stop if there is nothing selected
-                for cI in range(len(self.glyph.contours)):
-                    if len(self.glyph.contours[cI]) > 1:  # skip lonesome points
-                        contr = self.glyph.contours[cI]
-                        segms = contr.segments[:]
-                        segms = segms[:-1] if segms[-1].type == 'offCurve' else segms  # ignore tailing 'offCurve'-segments in open contours
-                        segms = segms[1:] + segms[:1] if segms[0].type == 'move' else segms  # 'move'-segment of open contours from beginning to end
-                        for pI in range(len(segms)):
-                            if segms[pI-2].type == 'curve' or segms[pI-2].type == 'qcurve':  # not 'offCurve', 'line', 'move' or such
-                                i3 = 3 if len(segms) > 2 else 1  # cheat with indexes if only 2 points in contour
-                                p1 = segms[pI - i3].points[-1]  # point in beginning of curve to be scaled
-                                p2 = segms[pI - 2].points[-1]  # ending point of curve to be scaled
-                                if p1.selected and not p2.selected or p2.selected and not p1.selected:
-                                    p3 = segms[pI - 1].points[-1]  # next onCurve point after p2
-                                    p0 = segms[pI - i3 - 1].points[-1] if len(segms) != 3 else p3  # previous onCurve point, p0 is p3 in 3-point outline
-                                    p1Ut = segms[pI - 2].points[-3]  # out-point of p1
-                                    p2In = segms[pI - 2].points[-2]  # in-point of p2
-                                    prevType = segms[pI - i3].type  # previous segment type
-                                    nextType = segms[pI - 1].type  # next segment type
-                                    self.scaleData.append(pointData(p1, p2, p1Ut, p2In, self.settings['simplified']) + (p0, p3, prevType, nextType))
+        glyph = self.getGlyph()
+        if glyph is not None and glyph.selectedPoints != ():
+            for cI in range(len(glyph.contours)):
+                if len(glyph.contours[cI]) > 1:  # skip lonesome points
+                    contr = glyph.contours[cI]
+                    segms = contr.segments[:]
+                    segms = segms[:-1] if segms[-1].type == 'offCurve' else segms  # ignore tailing 'offCurve'-segments in open contours
+                    segms = segms[1:] + segms[:1] if segms[0].type == 'move' else segms  # 'move'-segment of open contours from beginning to end
+                    for pI in range(len(segms)):
+                        if segms[pI-2].type == 'curve' or segms[pI-2].type == 'qcurve':  # not 'offCurve', 'line', 'move' or such
+                            i3 = 3 if len(segms) > 2 else 1  # cheat with indexes if only 2 points in contour
+                            p1 = segms[pI - i3].points[-1]  # point in beginning of curve to be scaled
+                            p2 = segms[pI - 2].points[-1]  # ending point of curve to be scaled
+                            if p1.selected and not p2.selected or p2.selected and not p1.selected:
+                                p3 = segms[pI - 1].points[-1]  # next onCurve point after p2
+                                p0 = segms[pI - i3 - 1].points[-1] if len(segms) != 3 else p3  # previous onCurve point, p0 is p3 in 3-point outline
+                                p1Ut = segms[pI - 2].points[0]  # out-point of p1
+                                p2In = segms[pI - 2].points[-2]  # in-point of p2
+                                prevType = segms[pI - i3].type  # previous segment type
+                                nextType = segms[pI - 1].type  # next segment type
+                                self.scaleData.append(pointData(p1, p2, p1Ut, p2In, self.settings['simplified']) + (p0, p3, prevType, nextType))
 
     def scalePoints(self, arrowKeyDown=0):
         if not self.transformMode():  # normal behavior in transform mode
-            for i in self.scaleData:
+            glyph = self.getGlyph()
+            with glyph.holdChanges():
+                for i in self.scaleData:
+                    p1, p2 = i[0], i[1]  # two onCurve points of the segment to be scaled
+                    p1Ut, p2In = i[2], i[3]  # out and in offCurve points of the curve
+                    p1xr, p1yr, p2xr, p2yr = i[4], i[5], i[6], i[7]
+                    p1yx, p1xy, p2yx, p2xy = i[8], i[9], i[10], i[11]
+                    p1dx, p1dy, p2dx, p2dy = i[12], i[13], i[14], i[15]
+                    p0, p3 = i[16], i[17]  # previous and next onCurve points
+                    prevType, nextType = i[18], i[19]  # previous and next segment types
 
-                p1, p2 = i[0], i[1]  # two onCurve points of the segment to be scaled
-                p1Ut, p2In = i[2], i[3]  # out and in offCurve points of the curve
-                p1xr, p1yr, p2xr, p2yr = i[4], i[5], i[6], i[7]
-                p1yx, p1xy, p2yx, p2xy = i[8], i[9], i[10], i[11]
-                p1dx, p1dy, p2dx, p2dy = i[12], i[13], i[14], i[15]
-                p0, p3 = i[16], i[17]  # previous and next onCurve points
-                prevType, nextType = i[18], i[19]  # previous and next segment types
+                    # scale curve
+                    newDistX = diff(p1.x, p2.x, self.settings['simplified'])
+                    newDistY = diff(p1.y, p2.y, self.settings['simplified'])
+                    p1UtX, p1UtY = newDistX * p1xr + p1.x, newDistY * p1yr + p1.y
+                    p2InX, p2InY = newDistX * p2xr + p2.x, newDistY * p2yr + p2.y
+                    p1Ut.x, p1Ut.y, p2In.x, p2In.y = p1UtX, p1UtY, p2InX, p2InY
 
-                # scale curve
-                newDistX = diff(p1.x, p2.x, self.settings['simplified'])
-                newDistY = diff(p1.y, p2.y, self.settings['simplified'])
-                p1UtX, p1UtY = newDistX * p1xr + p1.x, newDistY * p1yr + p1.y
-                p2InX, p2InY = newDistX * p2xr + p2.x, newDistY * p2yr + p2.y
-                p1Ut.x, p1Ut.y, p2In.x, p2In.y = p1UtX, p1UtY, p2InX, p2InY
+                    # correct offCurve angles
+                    if not self.settings['simplified']:
+                        if prevType == 'line' and p1.smooth:  # smooth line before
+                            p1Ut.x, p1Ut.y = smoothLines(p1, p0, p1Ut)
+                        elif p1yx:  # diagonal p1Ut
+                            p1Ut.x, p1Ut.y = keepAngles(p1, p1Ut, p1yx, p1xy, p1dx, p1dy)
+                            if not arrowKeyDown and self.commandDown:  # keep angle override
+                                if self.settings['smoothsToo'] or not self.settings['smoothsToo'] and not p1.smooth:
+                                    if self.settings['selectOnly'] and p1.selected or not self.settings['selectOnly']:
+                                        p1Ut.x, p1Ut.y = p1UtX, p1UtY
 
-                # correct offCurve angles
-                if not self.settings['simplified']:
-                    if prevType == 'line' and p1.smooth:  # smooth line before
-                        p1Ut.x, p1Ut.y = smoothLines(p1, p0, p1Ut)
-                    elif p1yx:  # diagonal p1Ut
-                        p1Ut.x, p1Ut.y = keepAngles(p1, p1Ut, p1yx, p1xy, p1dx, p1dy)
-                        if not arrowKeyDown and self.commandDown:  # keep angle override
-                            if self.settings['smoothsToo'] or not self.settings['smoothsToo'] and not p1.smooth:
-                                if self.settings['selectOnly'] and p1.selected or not self.settings['selectOnly']:
-                                    p1Ut.x, p1Ut.y = p1UtX, p1UtY
+                        if nextType == 'line' and p2.smooth:  # smooth line after
+                            p2In.x, p2In.y = smoothLines(p2, p3, p2In)
+                        elif p2yx:  # diagonal p2In
+                            p2In.x, p2In.y = keepAngles(p2, p2In, p2yx, p2xy, p2dx, p2dy)
+                            if not arrowKeyDown and self.commandDown:  # keep angle override
+                                if self.settings['smoothsToo'] or not self.settings['smoothsToo'] and not p2.smooth:
+                                    if self.settings['selectOnly'] and p2.selected or not self.settings['selectOnly']:
+                                        p2In.x, p2In.y = p2InX, p2InY
 
-                    if nextType == 'line' and p2.smooth:  # smooth line after
-                        p2In.x, p2In.y = smoothLines(p2, p3, p2In)
-                    elif p2yx:  # diagonal p2In
-                        p2In.x, p2In.y = keepAngles(p2, p2In, p2yx, p2xy, p2dx, p2dy)
-                        if not arrowKeyDown and self.commandDown:  # keep angle override
-                            if self.settings['smoothsToo'] or not self.settings['smoothsToo'] and not p2.smooth:
-                                if self.settings['selectOnly'] and p2.selected or not self.settings['selectOnly']:
-                                    p2In.x, p2In.y = p2InX, p2InY
+            glyph.changed()
 
 
 installTool(ScalingEditTool())

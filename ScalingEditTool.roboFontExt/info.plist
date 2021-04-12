@@ -26,13 +26,13 @@
 	<key>name</key>
 	<string>ScalingEditTool</string>
 	<key>requiresVersionMajor</key>
-	<string>1</string>
+	<string>3</string>
 	<key>requiresVersionMinor</key>
-	<string>7</string>
+	<string>2</string>
 	<key>timeStamp</key>
 	<real>1356559756.2455201</real>
 	<key>version</key>
-	<string>1.0.3</string>
+	<string>1.0.4</string>
 	<key>com.robofontmechanic.Mechanic</key>
 	<dict>
 		<key>repository</key>
