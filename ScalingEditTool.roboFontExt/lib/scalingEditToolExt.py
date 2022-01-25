@@ -19,6 +19,8 @@ from math import sqrt
 from os import path
 
 
+
+
 dirname = path.dirname(__file__)
 toolbarIcon = NSImage.alloc().initByReferencingFile_(path.join(dirname, "scalingEditToolbarIcon.pdf"))
 
@@ -61,8 +63,7 @@ def smoothLines(p, pp, offCurve):
     bcp = offCurve.x - p.x, offCurve.y - p.y
     bcpLen = sqrt(bcp[0] ** 2 + bcp[1] ** 2)
     # distances between points:
-    distX = diff(p.x, pp.x)
-    distY = diff(p.y, pp.y)
+    distX, distY = diff(p.x, pp.x), diff(p.y, pp.y)
     # new relative coordinates:
     newX, newY = 0, 0
     if distX:
@@ -91,66 +92,81 @@ def keepAngles(p, offCurve, pyx, pxy, pdx, pdy):
 
 class ScalingEditTool(EditingTool):
 
+    
     def getToolbarIcon(self):
         return toolbarIcon
 
+    
     def getToolbarTip(self):
         return "Scaling Edit"
 
+    
     def additionContextualMenuItems(self):
         selectText = 'Turn On Non-Selected' if self.settings['selectOnly'] else 'Turn Off Non-Selected'
         smoothText = 'Turn Off Smooths' if self.settings['smoothsToo'] else 'Turn On Smooths'
         simpliText = 'Turn Off Simplified Mode' if self.settings['simplified'] else 'Turn On Simplified Mode'
         return [('Angle Keeping Override (cmd-key)', [(selectText, self.menuCallSelected), (smoothText, self.menuCallSmooths)]), (simpliText, self.menuCallSimplified)]
 
+    
     def menuCallSelected(self, call):
         self.settings['selectOnly'] = False if self.settings['selectOnly'] else True
         setExtensionDefault('com.timoklaavo.scalingEditTool.selectOnly', self.settings['selectOnly'])
 
+    
     def menuCallSmooths(self, call):
         self.settings['smoothsToo'] = False if self.settings['smoothsToo'] else True
         setExtensionDefault('com.timoklaavo.scalingEditTool.smoothsToo', self.settings['smoothsToo'])
 
+    
     def menuCallSimplified(self, call):
         self.settings['simplified'] = False if self.settings['simplified'] else True
         setExtensionDefault('com.timoklaavo.scalingEditTool.simplified', self.settings['simplified'])
         self.buildScaleDataList()
 
+    
     def defaultSettings(self):
         self.settings = {}
         self.settings['selectOnly'] = getExtensionDefault('com.timoklaavo.scalingEditTool.selectOnly', fallback=False)
         self.settings['smoothsToo'] = getExtensionDefault('com.timoklaavo.scalingEditTool.smoothsToo', fallback=True)
         self.settings['simplified'] = getExtensionDefault('com.timoklaavo.scalingEditTool.simplified', fallback=False)
 
+    
     def becomeActive(self):
         self.defaultSettings()
         self.buildScaleDataList()
 
+    
     def currentGlyphChanged(self):
         self.buildScaleDataList()
 
+    
     def mouseDown(self, point, clickCount):
         self.buildScaleDataList()
 
+    
     def mouseUp(self, point):  # for lasso selections
         self.buildScaleDataList()
 
+    
     def mouseDragged(self, point, delta):
         if not self.optionDown and not self.commandDown:  # allow default option and command behavior
             self.scalePoints()
 
+    
     def modifiersChanged(self):
         if self.isDragging():  # command-key override of angle keeping works only when mouse is down
             self.scalePoints()
         else:
             self.buildScaleDataList()
 
+    
     def keyDown(self, event):
         if any(self.arrowKeysDown.values()):
             self.scalePoints(arrowKeyDown=True)
         elif not self.isDragging() or self.isDragging() and event.keyCode() == 48:  # 48 = tab or modifier+tab
             self.buildScaleDataList()  # triggered by tab while dragging, and all keys except arrows while not dragging
 
+    
     def buildScaleDataList(self):
         self.scaleData = []
         glyph = self.getGlyph()
@@ -161,24 +177,27 @@ class ScalingEditTool(EditingTool):
                     segms = contr.segments[:]
                     segms = segms[:-1] if segms[-1].type == 'offCurve' else segms  # ignore tailing 'offCurve'-segments in open contours
                     segms = segms[1:] + segms[:1] if segms[0].type == 'move' else segms  # 'move'-segment of open contours from beginning to end
-                    for pI in range(len(segms)):
+                    segm_len = len(segms)
+                    for pI in range(segm_len):
                         if segms[pI-2].type == 'curve' or segms[pI-2].type == 'qcurve':  # not 'offCurve', 'line', 'move' or such
-                            i3 = 3 if len(segms) > 2 else 1  # cheat with indexes if only 2 points in contour
+                            i3 = 3 if segm_len > 2 else 1  # cheat with indexes if only 2 points in contour
                             p1 = segms[pI - i3].points[-1]  # point in beginning of curve to be scaled
                             p2 = segms[pI - 2].points[-1]  # ending point of curve to be scaled
                             if p1.selected and not p2.selected or p2.selected and not p1.selected:
                                 p3 = segms[pI - 1].points[-1]  # next onCurve point after p2
-                                p0 = segms[pI - i3 - 1].points[-1] if len(segms) != 3 else p3  # previous onCurve point, p0 is p3 in 3-point outline
+                                p0 = segms[pI - i3 - 1].points[-1] if segm_len != 3 else p3  # previous onCurve point, p0 is p3 in 3-point outline
                                 p1Ut = segms[pI - 2].points[0]  # out-point of p1
                                 p2In = segms[pI - 2].points[-2]  # in-point of p2
                                 prevType = segms[pI - i3].type  # previous segment type
                                 nextType = segms[pI - 1].type  # next segment type
                                 self.scaleData.append(pointData(p1, p2, p1Ut, p2In, self.settings['simplified']) + (p0, p3, prevType, nextType))
 
+    
     def scalePoints(self, arrowKeyDown=0):
         if not self.transformMode():  # normal behavior in transform mode
             glyph = self.getGlyph()
             with glyph.holdChanges():
+                simplified, smoothsToo, selectOnly = self.settings['simplified'], self.settings['smoothsToo'], self.settings['selectOnly']
                 for i in self.scaleData:
                     p1, p2 = i[0], i[1]  # two onCurve points of the segment to be scaled
                     p1Ut, p2In = i[2], i[3]  # out and in offCurve points of the curve
@@ -189,21 +208,21 @@ class ScalingEditTool(EditingTool):
                     prevType, nextType = i[18], i[19]  # previous and next segment types
 
                     # scale curve
-                    newDistX = diff(p1.x, p2.x, self.settings['simplified'])
-                    newDistY = diff(p1.y, p2.y, self.settings['simplified'])
+                    newDistX = diff(p1.x, p2.x, simplified)
+                    newDistY = diff(p1.y, p2.y, simplified)
                     p1UtX, p1UtY = newDistX * p1xr + p1.x, newDistY * p1yr + p1.y
                     p2InX, p2InY = newDistX * p2xr + p2.x, newDistY * p2yr + p2.y
                     p1Ut.x, p1Ut.y, p2In.x, p2In.y = p1UtX, p1UtY, p2InX, p2InY
 
                     # correct offCurve angles
-                    if not self.settings['simplified']:
+                    if not simplified:
                         if prevType == 'line' and p1.smooth:  # smooth line before
                             p1Ut.x, p1Ut.y = smoothLines(p1, p0, p1Ut)
                         elif p1yx:  # diagonal p1Ut
                             p1Ut.x, p1Ut.y = keepAngles(p1, p1Ut, p1yx, p1xy, p1dx, p1dy)
                             if not arrowKeyDown and self.commandDown:  # keep angle override
-                                if self.settings['smoothsToo'] or not self.settings['smoothsToo'] and not p1.smooth:
-                                    if self.settings['selectOnly'] and p1.selected or not self.settings['selectOnly']:
+                                if smoothsToo or not smoothsToo and not p1.smooth:
+                                    if selectOnly and p1.selected or not selectOnly:
                                         p1Ut.x, p1Ut.y = p1UtX, p1UtY
 
                         if nextType == 'line' and p2.smooth:  # smooth line after
@@ -211,8 +230,8 @@ class ScalingEditTool(EditingTool):
                         elif p2yx:  # diagonal p2In
                             p2In.x, p2In.y = keepAngles(p2, p2In, p2yx, p2xy, p2dx, p2dy)
                             if not arrowKeyDown and self.commandDown:  # keep angle override
-                                if self.settings['smoothsToo'] or not self.settings['smoothsToo'] and not p2.smooth:
-                                    if self.settings['selectOnly'] and p2.selected or not self.settings['selectOnly']:
+                                if smoothsToo or not smoothsToo and not p2.smooth:
+                                    if selectOnly and p2.selected or not selectOnly:
                                         p2In.x, p2In.y = p2InX, p2InY
 
             glyph.changed()
