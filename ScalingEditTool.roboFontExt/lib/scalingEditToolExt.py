@@ -1,7 +1,6 @@
 """
 Scaling Edit Tool for RoboFont is a mouse and keyboard controlled version
-of what are better known as Interpolated Nudge tools, made famous by
-Christian Robertson http://www.christianrobertson.com
+of what are better known as Interpolated Nudge tools, made famous by Christian Robertson.
 When moving oncurve points, offcurve points are scaled in relation to
 neighboring oncurve points. The tool works on both bicubic and quadratic
 bezier curves, and open and closed contours. All the built-in Edit Tool
@@ -14,15 +13,18 @@ a more traditional operation without angle keeping.
 
 from mojo.events import EditingTool, installTool
 from mojo.extensions import getExtensionDefault, setExtensionDefault
+from mojo.UI import getDefault
 from AppKit import NSImage
 from math import sqrt
 from os import path
 
 
-
-
 dirname = path.dirname(__file__)
 toolbarIcon = NSImage.alloc().initByReferencingFile_(path.join(dirname, "scalingEditToolbarIcon.pdf"))
+
+
+def snapRound(value, base=1):
+    return base * round(value / base)
 
 
 def diff(a, b, simplified=False):
@@ -92,81 +94,84 @@ def keepAngles(p, offCurve, pyx, pxy, pdx, pdy):
 
 class ScalingEditTool(EditingTool):
 
-    
+
     def getToolbarIcon(self):
         return toolbarIcon
 
-    
+
     def getToolbarTip(self):
         return "Scaling Edit"
 
-    
+
     def additionContextualMenuItems(self):
         selectText = 'Turn On Non-Selected' if self.settings['selectOnly'] else 'Turn Off Non-Selected'
         smoothText = 'Turn Off Smooths' if self.settings['smoothsToo'] else 'Turn On Smooths'
         simpliText = 'Turn Off Simplified Mode' if self.settings['simplified'] else 'Turn On Simplified Mode'
         return [('Angle Keeping Override (cmd-key)', [(selectText, self.menuCallSelected), (smoothText, self.menuCallSmooths)]), (simpliText, self.menuCallSimplified)]
 
-    
+
     def menuCallSelected(self, call):
         self.settings['selectOnly'] = False if self.settings['selectOnly'] else True
         setExtensionDefault('com.timoklaavo.scalingEditTool.selectOnly', self.settings['selectOnly'])
 
-    
+
     def menuCallSmooths(self, call):
         self.settings['smoothsToo'] = False if self.settings['smoothsToo'] else True
         setExtensionDefault('com.timoklaavo.scalingEditTool.smoothsToo', self.settings['smoothsToo'])
 
-    
+
     def menuCallSimplified(self, call):
         self.settings['simplified'] = False if self.settings['simplified'] else True
         setExtensionDefault('com.timoklaavo.scalingEditTool.simplified', self.settings['simplified'])
         self.buildScaleDataList()
 
-    
+
     def defaultSettings(self):
         self.settings = {}
         self.settings['selectOnly'] = getExtensionDefault('com.timoklaavo.scalingEditTool.selectOnly', fallback=False)
         self.settings['smoothsToo'] = getExtensionDefault('com.timoklaavo.scalingEditTool.smoothsToo', fallback=True)
         self.settings['simplified'] = getExtensionDefault('com.timoklaavo.scalingEditTool.simplified', fallback=False)
+        self.snapValue = int(getDefault("glyphViewRoundValues"))
 
-    
+    def preferencesChanged(self):
+        self.snapValue = int(getDefault("glyphViewRoundValues"))
+
     def becomeActive(self):
         self.defaultSettings()
         self.buildScaleDataList()
 
-    
+
     def currentGlyphChanged(self):
         self.buildScaleDataList()
 
-    
+
     def mouseDown(self, point, clickCount):
         self.buildScaleDataList()
 
-    
+
     def mouseUp(self, point):  # for lasso selections
         self.buildScaleDataList()
 
-    
+
     def mouseDragged(self, point, delta):
         if not self.optionDown and not self.commandDown:  # allow default option and command behavior
             self.scalePoints()
 
-    
+
     def modifiersChanged(self):
         if self.isDragging():  # command-key override of angle keeping works only when mouse is down
             self.scalePoints()
         else:
             self.buildScaleDataList()
 
-    
+
     def keyDown(self, event):
         if any(self.arrowKeysDown.values()):
             self.scalePoints(arrowKeyDown=True)
         elif not self.isDragging() or self.isDragging() and event.keyCode() == 48:  # 48 = tab or modifier+tab
             self.buildScaleDataList()  # triggered by tab while dragging, and all keys except arrows while not dragging
 
-    
+
     def buildScaleDataList(self):
         self.scaleData = []
         glyph = self.getGlyph()
@@ -190,9 +195,13 @@ class ScalingEditTool(EditingTool):
                                 p2In = segms[pI - 2].points[-2]  # in-point of p2
                                 prevType = segms[pI - i3].type  # previous segment type
                                 nextType = segms[pI - 1].type  # next segment type
+                                if p1Ut.selected and not p1.selected and p1.smooth and prevType != 'line':
+                                    p1.smooth = False  # to avoid changing previous segment in case p1Ut is selected separately
+                                if p2In.selected and not p2.selected and p2.smooth and nextType != 'line':
+                                    p2.smooth = False  # to avoid changing next segment in case p2In is selected separately
                                 self.scaleData.append(pointData(p1, p2, p1Ut, p2In, self.settings['simplified']) + (p0, p3, prevType, nextType))
 
-    
+
     def scalePoints(self, arrowKeyDown=0):
         if not self.transformMode():  # normal behavior in transform mode
             glyph = self.getGlyph()
@@ -233,6 +242,12 @@ class ScalingEditTool(EditingTool):
                                 if smoothsToo or not smoothsToo and not p2.smooth:
                                     if selectOnly and p2.selected or not selectOnly:
                                         p2In.x, p2In.y = p2InX, p2InY
+
+                    if self.snapValue:
+                        p1Ut.x = snapRound(p1Ut.x, self.snapValue)
+                        p1Ut.y = snapRound(p1Ut.y, self.snapValue)
+                        p2In.x = snapRound(p2In.x, self.snapValue)
+                        p2In.y = snapRound(p2In.y, self.snapValue)
 
             glyph.changed()
 
