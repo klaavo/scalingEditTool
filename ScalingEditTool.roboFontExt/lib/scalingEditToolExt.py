@@ -167,8 +167,10 @@ class ScalingEditTool(EditingTool):
 
     def keyDown(self, event):
         if any(self.arrowKeysDown.values()):
+            # if the arrow keys are down, scale the points
             self.scalePoints(arrowKeyDown=True)
-        elif not self.isDragging() or (self.isDragging() and event.keyCode() == 48):  # 48 = tab or modifier+tab
+        elif not self.isDragging() or event.keyCode() == 48:  # 48 = tab or modifier+tab
+            # if a key is pressed and we're not dragging, OR if that key is tab, regardless of dragging state, rebuild the scaleData list
             self.buildScaleDataList()  # triggered by tab while dragging, and all keys except arrows while not dragging
 
 
@@ -248,6 +250,10 @@ class ScalingEditTool(EditingTool):
                         p1Ut.y = snapRound(p1Ut.y, self.snapValue)
                         p2In.x = snapRound(p2In.x, self.snapValue)
                         p2In.y = snapRound(p2In.y, self.snapValue)
+            
+            # Fredrik's alternative to glyph.changed()
+            glyph.asDefcon().selection.resetSelectionPath()
+            glyph.asDefcon().selection.dirty = True
 
 
 installTool(ScalingEditTool())
