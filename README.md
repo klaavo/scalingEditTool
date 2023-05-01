@@ -14,4 +14,4 @@ mouse is down. In contextual menu (right mouse click) you can choose whether or 
 non-selected points are affected by the override. Simplified mode offers a more traditional
 operation without angle keeping.
 
-[MIT Licence](https://en.wikipedia.org/wiki/MIT_License) Copyright (C) 2012–2022 Timo Klaavo
+[MIT Licence](https://en.wikipedia.org/wiki/MIT_License) Copyright (C) 2012–2023 Timo Klaavo

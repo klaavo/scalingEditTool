@@ -133,15 +133,19 @@ class ScalingEditTool(EditingTool):
         self.settings['simplified'] = getExtensionDefault('com.timoklaavo.scalingEditTool.simplified', fallback=False)
         self.snapValue = int(getDefault("glyphViewRoundValues"))
 
+
     def preferencesChanged(self):
         self.snapValue = int(getDefault("glyphViewRoundValues"))
 
+
     def becomeActive(self):
+        self.glyph = self.getGlyph()
         self.defaultSettings()
         self.buildScaleDataList()
 
 
     def currentGlyphChanged(self):
+        self.glyph = self.getGlyph()
         self.buildScaleDataList()
 
 
@@ -149,7 +153,7 @@ class ScalingEditTool(EditingTool):
         self.buildScaleDataList()
 
 
-    def mouseUp(self, point):  # for lasso selections
+    def mouseUp(self, point):  # for lasso/rectangle drag selections
         self.buildScaleDataList()
 
 
@@ -161,7 +165,7 @@ class ScalingEditTool(EditingTool):
     def modifiersChanged(self):
         if self.isDragging():  # command-key override of angle keeping works only when mouse is down
             self.scalePoints()
-        else:
+        else:  # I wonder why this was added at some point... It might not be needed.
             self.buildScaleDataList()
 
 
@@ -171,43 +175,43 @@ class ScalingEditTool(EditingTool):
             self.scalePoints(arrowKeyDown=True)
         elif not self.isDragging() or event.keyCode() == 48:  # 48 = tab or modifier+tab
             # if a key is pressed and we're not dragging, OR if that key is tab, regardless of dragging state, rebuild the scaleData list
-            self.buildScaleDataList()  # triggered by tab while dragging, and all keys except arrows while not dragging
+            self.buildScaleDataList()  # in other words, triggered only by tab while dragging, and all keys except arrows (and modifiers and space) while not dragging
 
 
     def buildScaleDataList(self):
         self.scaleData = []
-        glyph = self.getGlyph()
-        if glyph is not None and glyph.selectedPoints != ():
-            for cI in range(len(glyph.contours)):
-                if len(glyph.contours[cI]) > 1:  # skip lonesome points
-                    contr = glyph.contours[cI]
-                    segms = contr.segments[:]
-                    segms = segms[:-1] if segms[-1].type == 'offCurve' else segms  # ignore tailing 'offCurve'-segments in open contours
-                    segms = segms[1:] + segms[:1] if segms[0].type == 'move' else segms  # 'move'-segment of open contours from beginning to end
-                    segm_len = len(segms)
-                    for pI in range(segm_len):
-                        if segms[pI-2].type == 'curve' or segms[pI-2].type == 'qcurve':  # not 'offCurve', 'line', 'move' or such
-                            i3 = 3 if segm_len > 2 else 1  # cheat with indexes if only 2 points in contour
-                            p1 = segms[pI - i3].points[-1]  # point in beginning of curve to be scaled
-                            p2 = segms[pI - 2].points[-1]  # ending point of curve to be scaled
-                            if p1.selected and not p2.selected or p2.selected and not p1.selected:
-                                p3 = segms[pI - 1].points[-1]  # next onCurve point after p2
-                                p0 = segms[pI - i3 - 1].points[-1] if segm_len != 3 else p3  # previous onCurve point, p0 is p3 in 3-point outline
-                                p1Ut = segms[pI - 2].points[0]  # out-point of p1
-                                p2In = segms[pI - 2].points[-2]  # in-point of p2
-                                prevType = segms[pI - i3].type  # previous segment type
-                                nextType = segms[pI - 1].type  # next segment type
-                                if p1Ut.selected and not p1.selected and p1.smooth and prevType != 'line':
-                                    p1.smooth = False  # to avoid changing previous segment in case p1Ut is selected separately
-                                if p2In.selected and not p2.selected and p2.smooth and nextType != 'line':
-                                    p2.smooth = False  # to avoid changing next segment in case p2In is selected separately
-                                self.scaleData.append(pointData(p1, p2, p1Ut, p2In, self.settings['simplified']) + (p0, p3, prevType, nextType))
+        if self.glyph is not None and self.glyph.selectedPoints != ():
+            contours = []  # collect contours that have selected points:
+            for p in self.glyph.selectedPoints:
+                if p.contour not in contours and len(p.contour) > 1:
+                    contours.append(p.contour)
+            for contr in contours:
+                segms = contr.segments[:]
+                segms = segms[:-1] if segms[-1].type == 'offCurve' else segms  # ignore tailing 'offCurve'-segments in open contours
+                segms = segms[1:] + segms[:1] if segms[0].type == 'move' else segms  # 'move'-segment of open contours from beginning to end
+                segm_len = len(segms)
+                for pI in range(segm_len):
+                    if segms[pI-2].type == 'curve' or segms[pI-2].type == 'qcurve':  # not 'offCurve', 'line', 'move' or such
+                        i3 = 3 if segm_len > 2 else 1  # cheat with indexes if only 2 points in contour
+                        p1 = segms[pI - i3].points[-1]  # point in beginning of curve to be scaled
+                        p2 = segms[pI - 2].points[-1]  # ending point of curve to be scaled
+                        if p1.selected and not p2.selected or p2.selected and not p1.selected:
+                            p3 = segms[pI - 1].points[-1]  # next onCurve point after p2
+                            p0 = segms[pI - i3 - 1].points[-1] if segm_len != 3 else p3  # previous onCurve point, p0 is p3 in 3-point outline
+                            p1Ut = segms[pI - 2].points[0]  # out-point of p1
+                            p2In = segms[pI - 2].points[-2]  # in-point of p2
+                            prevType = segms[pI - i3].type  # previous segment type
+                            nextType = segms[pI - 1].type  # next segment type
+                            if p1Ut.selected and not p1.selected and p1.smooth and prevType != 'line':
+                                p1.smooth = False  # to avoid changing previous segment in case p1Ut is selected separately
+                            if p2In.selected and not p2.selected and p2.smooth and nextType != 'line':
+                                p2.smooth = False  # to avoid changing next segment in case p2In is selected separately
+                            self.scaleData.append(pointData(p1, p2, p1Ut, p2In, self.settings['simplified']) + (p0, p3, prevType, nextType))
 
 
     def scalePoints(self, arrowKeyDown=0):
-        if not self.transformMode():  # normal behavior in transform mode
-            glyph = self.getGlyph()
-            with glyph.holdChanges():
+        if self.glyph is not None and not self.transformMode():  # normal behavior in transform mode
+            with self.glyph.holdChanges():
                 simplified, smoothsToo, selectOnly = self.settings['simplified'], self.settings['smoothsToo'], self.settings['selectOnly']
                 for i in self.scaleData:
                     p1, p2 = i[0], i[1]  # two onCurve points of the segment to be scaled
@@ -232,8 +236,8 @@ class ScalingEditTool(EditingTool):
                         elif p1yx:  # diagonal p1Ut
                             p1Ut.x, p1Ut.y = keepAngles(p1, p1Ut, p1yx, p1xy, p1dx, p1dy)
                             if not arrowKeyDown and self.commandDown:  # keep angle override
-                                if smoothsToo or not smoothsToo and not p1.smooth:
-                                    if selectOnly and p1.selected or not selectOnly:
+                                if smoothsToo or not p1.smooth:
+                                    if not selectOnly or p1.selected:
                                         p1Ut.x, p1Ut.y = p1UtX, p1UtY
 
                         if nextType == 'line' and p2.smooth:  # smooth line after
@@ -241,19 +245,22 @@ class ScalingEditTool(EditingTool):
                         elif p2yx:  # diagonal p2In
                             p2In.x, p2In.y = keepAngles(p2, p2In, p2yx, p2xy, p2dx, p2dy)
                             if not arrowKeyDown and self.commandDown:  # keep angle override
-                                if smoothsToo or not smoothsToo and not p2.smooth:
-                                    if selectOnly and p2.selected or not selectOnly:
+                                if smoothsToo or not p2.smooth:
+                                    if not selectOnly or p2.selected:
                                         p2In.x, p2In.y = p2InX, p2InY
 
+                    # round coordinates
                     if self.snapValue:
                         p1Ut.x = snapRound(p1Ut.x, self.snapValue)
                         p1Ut.y = snapRound(p1Ut.y, self.snapValue)
                         p2In.x = snapRound(p2In.x, self.snapValue)
                         p2In.y = snapRound(p2In.y, self.snapValue)
             
+            # update the selection highlight
             # Fredrik's alternative to glyph.changed()
-            glyph.asDefcon().selection.resetSelectionPath()
-            glyph.asDefcon().selection.dirty = True
+            #glyph.asDefcon().selection.resetSelectionPath()
+            #glyph.asDefcon().selection.dirty = True
+            self.selection.dirty = True  # this seems to do the trick
 
 
 installTool(ScalingEditTool())
